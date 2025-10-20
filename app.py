@@ -873,18 +873,56 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Jura:wght@300;400;500;600;700&display=swap');
 
-/* Brug Jura globalt og tving lyst tema */
-html, body, [class*="st-"], div, p, span, h1, h2, h3, h4, h5, h6, button, input, textarea {
+/* ====== GLOBAL STYLING ====== */
+html, body, [class*="st-"], div, p, span, h1, h2, h3, h4, h5, h6, button, input, textarea, label {
     font-family: 'Jura', sans-serif !important;
     color: #000000 !important;
 }
 
-/* Tving altid lyst tema */
+/* ====== LYS BAGGRUND ====== */
 [data-testid="stAppViewContainer"],
 [data-testid="stHeader"],
 [data-testid="stSidebar"],
 [data-testid="stToolbar"] {
     background-color: #FFFFFF !important;
+}
+
+/* ====== INPUTFELTER & KNAPPER ====== */
+input, textarea, select, .stTextInput > div > div > input, .stNumberInput input, 
+.stTextArea textarea, .stDateInput input, .stFileUploader, .stDownloadButton button {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    border: 1px solid #CCCCCC !important;
+    border-radius: 6px !important;
+    padding: 6px 10px !important;
+}
+
+.stButton button {
+    background-color: #003DFF !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+}
+
+.stButton button:hover {
+    background-color: #002ECC !important;
+}
+
+/* ====== SIDEBAR ====== */
+[data-testid="stSidebar"] {
+    background-color: #F8F9FF !important;
+    border-right: 1px solid #E0E0E0 !important;
+}
+
+/* ====== LABELS ====== */
+label, .st-emotion-cache-16idsys p {
+    color: #000000 !important;
+}
+
+/* Fjern mørke skygger */
+.stTextInput, .stTextArea, .stDateInput, .stNumberInput {
+    box-shadow: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
