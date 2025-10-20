@@ -916,6 +916,27 @@ input, textarea, select, .stTextInput > div > div > input, .stNumberInput input,
     border-color: #002ECC !important;
 }
 
+/* Overstyr Streamlit upload-knap (Browse files) */
+[data-testid="stFileUploadDropzone"] button {
+    background-color: #FFFFFF !important;
+    color: #003DFF !important;
+    border: 1px solid #003DFF !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease-in-out !important;
+}
+[data-testid="stFileUploadDropzone"] button:hover {
+    background-color: #003DFF !important;
+    color: #FFFFFF !important;
+}
+
+/* Sikrer at tekst og ikon i uploadfeltet er blå og ikke hvide */
+[data-testid="stFileUploadDropzone"] svg,
+[data-testid="stFileUploadDropzone"] span {
+    color: #003DFF !important;
+    fill: #003DFF !important;
+}
+
 .stButton button {
     background-color: #FFFFFF !important;
     color: #003DFF !important;
