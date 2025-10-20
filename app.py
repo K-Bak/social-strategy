@@ -868,6 +868,7 @@ def generate_pdf(kunde, strategy_text, competitor_data, gantt_df):
 # ---------- STREAMLIT APP ----------
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
+st.session_state["theme"] = {"base": "light"}
 # ---------- GLOBAL STYLE OVERRIDES ----------
 st.markdown("""
 <style>
