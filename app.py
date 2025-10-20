@@ -1,5 +1,13 @@
 import locale
-locale.setlocale(locale.LC_ALL, 'da_DK.UTF-8')
+
+# Prøv dansk locale, ellers brug systemets default
+try:
+    locale.setlocale(locale.LC_ALL, 'da_DK.UTF-8')
+except locale.Error:
+    try:
+        locale.setlocale(locale.LC_ALL, 'da_DK.utf8')
+    except locale.Error:
+        locale.setlocale(locale.LC_ALL, '')
 import asyncio
 import io
 from datetime import datetime, timedelta
