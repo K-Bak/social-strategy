@@ -16,6 +16,15 @@ import openai
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+# --- FORCE LIGHT THEME IN STREAMLIT CLOUD ---
+try:
+    st._config.set_option("theme.base", "light")
+    st._config.set_option("theme.primaryColor", "#003DFF")
+    st._config.set_option("theme.backgroundColor", "#FFFFFF")
+    st._config.set_option("theme.secondaryBackgroundColor", "#F8F9FF")
+    st._config.set_option("theme.textColor", "#000000")
+except Exception:
+    pass
 from bs4 import BeautifulSoup
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
