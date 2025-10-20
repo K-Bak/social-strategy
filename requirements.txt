@@ -1,0 +1,26 @@
+# --- Core dependencies ---
+streamlit>=1.38.0
+openai>=1.40.0
+pandas>=2.2.2
+plotly>=5.22.0
+beautifulsoup4>=4.12.3
+lxml>=5.2.1
+nest_asyncio>=1.6.0
+playwright>=1.46.0
+reportlab>=4.2.2
+python-docx>=1.1.2
+
+# --- Optional utilities ---
+asyncio
+requests
+tqdm
+
+# --- For PDF/table formatting and fonts ---
+PyPDF2>=3.0.1
+
+# --- Force Danish locale fallback (avoid errors on Streamlit Cloud) ---
+babel>=2.15.0
+
+# --- Playwright setup (ensure Chromium available) ---
+# On Streamlit Cloud this runs automatically, but locally you may need:
+#   playwright install
