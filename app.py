@@ -889,12 +889,31 @@ html, body, [class*="st-"], div, p, span, h1, h2, h3, h4, h5, h6, button, input,
 
 /* ====== INPUTFELTER & KNAPPER ====== */
 input, textarea, select, .stTextInput > div > div > input, .stNumberInput input, 
-.stTextArea textarea, .stDateInput input, .stFileUploader, .stDownloadButton button {
+.stTextArea textarea, .stDateInput input, .stDownloadButton button {
     background-color: #FFFFFF !important;
     color: #000000 !important;
     border: 1px solid #CCCCCC !important;
     border-radius: 6px !important;
     padding: 6px 10px !important;
+}
+
+/* File uploader */
+.stFileUploader {
+    background-color: #FFFFFF !important;
+    border: 1px solid #CCCCCC !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+}
+
+.stFileUploader label div[data-testid="stFileUploadDropzone"] {
+    background-color: #FFFFFF !important;
+    border: 1px dashed #003DFF !important;
+    color: #000000 !important;
+}
+
+.stFileUploader label div[data-testid="stFileUploadDropzone"]:hover {
+    background-color: #F2F5FF !important;
+    border-color: #002ECC !important;
 }
 
 .stButton button {
