@@ -898,15 +898,17 @@ input, textarea, select, .stTextInput > div > div > input, .stNumberInput input,
 }
 
 .stButton button {
-    background-color: #003DFF !important;
-    color: #FFFFFF !important;
-    border: none !important;
+    background-color: #FFFFFF !important;
+    color: #003DFF !important;
+    border: 1px solid #003DFF !important;
     border-radius: 6px !important;
     font-weight: 600 !important;
+    transition: all 0.2s ease-in-out !important;
 }
 
 .stButton button:hover {
-    background-color: #002ECC !important;
+    background-color: #003DFF !important;
+    color: #FFFFFF !important;
 }
 
 /* ====== SIDEBAR ====== */
