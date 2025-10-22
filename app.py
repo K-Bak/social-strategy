@@ -277,8 +277,11 @@ def generate_strategy_text(customer_data: list[dict], competitor_data: dict, xpe
         "2) USP’er (top 6) + tone of voice (3-5 ord)\n"
         "3) META-funnel (Awareness → Consideration → Conversion → Loyalty) med forslag til kampagner/placeringer/formater\n"
         "4) KPI’er og målepunkter (kun Meta)\n"
-        "5) Risici/forudsætninger\n\n"
-        "Grundlag for analysen:\n"
+        "5) Risici/forudsætninger\n"
+        "6) **Årsstrategi**: Udarbejd en tydelig årsstrategi med kvartalsvis struktur (Q1, Q2, Q3, Q4), hvor hovedindsatser og fokusområder for hvert kvartal beskrives kort og konkret.\n"
+        "7) **Faseopdeling**: Giv en anbefaling til om strategien bør opdeles i faser (Awareness, Consideration, Conversion, Loyalty) – og hvordan denne opdeling evt. kan styrke resultaterne.\n"
+        "8) **Spørgsmål til kunde ved opstartsmødet**: Afslut med et afsnit med overskriften 'Spørgsmål til kunde ved opstartsmødet' og angiv 6–8 konkrete spørgsmål, der er vigtige at afklare for at kunne eksekvere strategien bedst muligt.\n"
+        "\nGrundlag for analysen:\n"
     )
     prompt += "Kundens data (uddrag fra sider):\n"
     for page in customer_data[:6]:
@@ -288,7 +291,7 @@ def generate_strategy_text(customer_data: list[dict], competitor_data: dict, xpe
     prompt += "\nKonkurrentdata (oversigt):\n"
     for c_url, pages in competitor_data.items():
         prompt += f"- {c_url}: {len(pages)} sider\n"
-    prompt += f"\nVigtige services/undersider: {important_services}\n"
+    prompt += f"\nAnden vigtig info: {important_services}\n"
     if xpect_text:
         prompt += f"\nXpect tekst (uddrag):\n{xpect_text[:2000]}\n"
     prompt += "\nSkriv KUN om Meta. Brug ikke ord som SEO/Google/TikTok i anbefalingerne.\n"
@@ -298,10 +301,19 @@ def generate_campaign_plan_text(strategy_text: str, antal_kampagner: int) -> str
     prompt = (
         "Byg en 12-måneders Meta kampagneplan baseret på strategien nedenfor.\n"
         "Krav:\n"
+        "- Planen skal dække ét helt år (1-års plan).\n"
         "- Inkludér 2 always-on kampagner: 'Brand Awareness' og 'Retargeting & Loyalty'\n"
         f"- Derudover max {max(0, antal_kampagner - 2)} sæson-/tema-kampagner med konkrete navne (korte, klare)\n"
-        "- Angiv for hver kampagne: formål, primære placeringer/formater på Meta, primær målgruppe, estimeret % af månedligt budget (fx 'Budget: 20%'), foreslået periode (måneder)\n"
-        "- Tilføj tydelig label med budgetprocent pr. kampagne, fx 'Budget: 20%'.\n"
+        "- For hver kampagne skal følgende fremgå:\n"
+        "    • Formål\n"
+        "    • Primære placeringer/formater på Meta\n"
+        "    • Primær målgruppe\n"
+        "    • Estimeret % af månedligt budget (fx 'Budget: 20%')\n"
+        "    • Foreslået periode (måneder)\n"
+        "    • KPI’er (hvad måler vi på for succes?)\n"
+        "    • Anbefalinger til content (hvilken type indhold bør prioriteres til denne kampagne)\n"
+        "    • **Angiv budget i kroner pr. kampagne**: Beregn og vis det forventede budget i DKK for hver kampagne, baseret på det månedlige budget brugeren har indtastet (feltet 'månedligt budget (DKK)'). Skriv f.eks. 'Budget: 20.000 DKK'.\n"
+        "- Tilføj tydelig label med budgetprocent og budget i kroner pr. kampagne, fx 'Budget: 20% / 20.000 DKK'.\n"
         "- Skriv KUN om Meta (ingen SEO/Google Ads/andre kanaler)\n\n"
         "Strategi:\n"
         f"{strategy_text}\n"
@@ -1011,7 +1023,9 @@ with st.form("input_form"):
         website_url = st.text_input("Website-URL", placeholder="https://www.eksempel.dk", value=st.session_state.get("website_url", ""))
         månedligt_budget = st.number_input("Månedligt budget (DKK)", min_value=0, step=1000, value=st.session_state.get("månedligt_budget", 0))
         antal_kampagner = st.number_input("Antal kampagner i kontraktåret", min_value=1, step=1, value=st.session_state.get("antal_kampagner", 4))
-        vigtige_services = st.text_area("Vigtige services/undersider (én per linje)", height=100, value=st.session_state.get("vigtige_services", ""))
+        kunde_beskrivelse = st.text_area("Generel beskrivelse af kunden", height=100, value=st.session_state.get("kunde_beskrivelse", ""))
+        anden_info = st.text_area("Anden vigtig info", height=100, value=st.session_state.get("anden_info", ""))
+        eksisterende_data = st.file_uploader("Upload eksisterende data fra annoncekonto (CSV, XLSX eller PDF)", type=["csv", "xlsx", "pdf"])
     with col2:
         startdato = st.date_input("Startdato (default = i dag + 7)", value=st.session_state.get("startdato", DEFAULT_STARTDATE))
         konkurrent_urls_raw = st.text_area("Konkurrent-URL’er (én per linje)", value=st.session_state.get("konkurrent_urls_raw", ""))
@@ -1025,7 +1039,9 @@ if submit_button:
     st.session_state.website_url = website_url
     st.session_state.månedligt_budget = månedligt_budget
     st.session_state.antal_kampagner = antal_kampagner
-    st.session_state.vigtige_services = vigtige_services
+    st.session_state.kunde_beskrivelse = kunde_beskrivelse
+    st.session_state.anden_info = anden_info
+    st.session_state.eksisterende_data = eksisterende_data
     st.session_state.startdato = startdato
     st.session_state.konkurrent_urls_raw = konkurrent_urls_raw
     st.session_state.xpect_text_manual = xpect_text_manual
@@ -1120,7 +1136,7 @@ if submit_button:
     # ---------- AI-GENERATED STRATEGY ----------
     st.header("Strategioversigt")
     with st.spinner("Genererer strategi med AI..."):
-        prompt_strategy = generate_strategy_text(cust_pages, st.session_state.scraped_data.get("competitors", {}) if st.session_state.scraped_data else {}, xpect_text, vigtige_services)
+        prompt_strategy = generate_strategy_text(cust_pages, st.session_state.scraped_data.get("competitors", {}) if st.session_state.scraped_data else {}, xpect_text, anden_info)
         strategy_text = call_openai_api(prompt_strategy, openai_api_key)
         # Fjern alt fra "4. Digital Marketing Strategi" og ned hvis det findes
         if "4. Digital Marketing Strategi" in strategy_text:
