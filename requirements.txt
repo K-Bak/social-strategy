@@ -1,0 +1,19 @@
+# Core
+streamlit>=1.39.0
+pandas>=2.2.2
+requests>=2.32.3
+beautifulsoup4>=4.12.3
+lxml>=5.2.2
+openai>=1.41.0
+
+# Word export
+python-docx>=1.1.0
+
+# Data handling (Excel/CSV)
+openpyxl>=3.1.5
+
+# Optional (for consistent PDF/HTML rendering in Streamlit previews)
+html5lib>=1.1
+
+# Typing support
+typing-extensions>=4.12.2
