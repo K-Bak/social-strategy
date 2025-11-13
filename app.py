@@ -4,6 +4,7 @@ import requests
 import pandas as pd
 import streamlit as st
 from bs4 import BeautifulSoup
+import docx
 
 #
 # =============================
@@ -35,6 +36,105 @@ col1, col2 = st.columns(2)
 with col1:
     customer_name = st.text_input("Kundenavn")
     website = st.text_input("Website (https://…)")
+    important_subpages_raw = st.text_area("Vigtige undersider (fulde URLs, én per linje)", height=120)
+    # ==========================================
+    # Background scraping
+    # ==========================================
+
+    if website:
+        # --- Helper: simple_scrape ---
+        def simple_scrape(url: str, timeout_sec: int = 10) -> dict:
+            """Let scraping: forsiden + op til 3 interne links (titel, meta, H1/H2, text)."""
+            out = {"homepage": {}, "samples": []}
+            if not url or not url.startswith("http"):
+                return out
+            try:
+                r = requests.get(url, timeout=timeout_sec, headers={"User-Agent": "Mozilla/5.0"})
+                soup = BeautifulSoup(r.text, "lxml")
+                title = soup.title.text.strip() if soup.title else ""
+                md = soup.find("meta", {"name": "description"})
+                meta = md.get("content", "").strip() if md else ""
+                h1 = [h.get_text(" ", strip=True) for h in soup.find_all("h1")][:5]
+                h2 = [h.get_text(" ", strip=True) for h in soup.find_all("h2")][:8]
+                out["homepage"] = {"title": title, "meta": meta, "h1": h1, "h2": h2}
+
+                links = []
+                for a in soup.find_all("a", href=True):
+                    href = a["href"].strip()
+                    if href.startswith("http") and url.split("/")[2] in href:
+                        links.append(href)
+                    elif href.startswith("/"):
+                        base = url.rstrip("/")
+                        links.append(base + href)
+                    if len(links) >= 3:
+                        break
+
+                for link in links:
+                    try:
+                        r2 = requests.get(link, timeout=timeout_sec, headers={"User-Agent": "Mozilla/5.0"})
+                        s2 = BeautifulSoup(r2.text, "lxml")
+                        title2 = s2.title.text.strip() if s2.title else ""
+                        md2 = s2.find("meta", {"name": "description"})
+                        meta2 = md2.get("content", "").strip() if md2 else ""
+                        h1_2 = [h.get_text(" ", strip=True) for h in s2.find_all("h1")][:3]
+                        paragraphs = [p.get_text(" ", strip=True) for p in s2.find_all("p")]
+                        lis = [li.get_text(" ", strip=True) for li in s2.find_all("li")]
+                        combined = paragraphs + lis
+                        combined = [c for c in combined if len(c) > 40]
+                        text2 = "\n".join(combined[:20])
+
+                        out["samples"].append({
+                            "url": link,
+                            "title": title2,
+                            "meta": meta2,
+                            "h1": h1_2,
+                            "text": text2
+                        })
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            return out
+        prev = st.session_state.get("scraped_site", {})
+        if prev.get("_url") != website:
+            st.session_state["scraped_site"] = {
+                "_url": website,
+                "data": simple_scrape(website)
+            }
+
+    # --- Scrape a single page (full URL) for title/meta/h1/text ---
+    def scrape_single_page(url: str, timeout_sec: int = 10) -> dict:
+        out = {"url": url, "title": "", "meta": "", "h1": [], "text": ""}
+        if not url or not url.startswith("http"):
+            return out
+        try:
+            r = requests.get(url, timeout=timeout_sec, headers={"User-Agent": "Mozilla/5.0"})
+            s = BeautifulSoup(r.text, "lxml")
+
+            out["title"] = s.title.text.strip() if s.title else ""
+            md = s.find("meta", {"name": "description"})
+            out["meta"] = md.get("content", "").strip() if md else ""
+            out["h1"] = [h.get_text(" ", strip=True) for h in s.find_all("h1")][:5]
+
+            # NEW: extract visible text (A-level scraping)
+            paragraphs = [p.get_text(" ", strip=True) for p in s.find_all("p")]
+            lis = [li.get_text(" ", strip=True) for li in s.find_all("li")]
+
+            combined = paragraphs + lis
+            combined = [c for c in combined if len(c) > 40]  # filter noise
+            out["text"] = "\n".join(combined[:20])  # cap to 20 elements
+        except Exception:
+            pass
+        return out
+
+    if important_subpages_raw:
+        sub_urls = [u.strip() for u in important_subpages_raw.splitlines() if u.strip()]
+        prev = st.session_state.get("scraped_subpages", {})
+        if prev.get("_urls") != sub_urls:
+            st.session_state["scraped_subpages"] = {
+                "_urls": sub_urls,
+                "data": [scrape_single_page(u) for u in sub_urls]
+            }
     monthly_budget = st.number_input("Månedligt budget (DKK)", min_value=0, step=1000, value=0)
     other_info = st.text_area("Egne idéer / Anden vigtig info", height=120)
     competitors_raw = st.text_area("Konkurrenter (én per linje)", height=120)
@@ -95,46 +195,7 @@ def summarize_ad_account(df: pd.DataFrame) -> str:
         return "Kunne ikke opsummere kontodata – behandles som rå bilag."
 
 
-def simple_scrape(url: str, timeout_sec: int = 10) -> dict:
-    """Let scraping: forsiden + op til 3 interne links (titel, meta, H1/H2)."""
-    out = {"homepage": {}, "samples": []}
-    if not url or not url.startswith("http"):
-        return out
-    try:
-        r = requests.get(url, timeout=timeout_sec, headers={"User-Agent": "Mozilla/5.0"})
-        soup = BeautifulSoup(r.text, "lxml")
-        title = soup.title.text.strip() if soup.title else ""
-        md = soup.find("meta", {"name": "description"})
-        meta = md.get("content", "").strip() if md else ""
-        h1 = [h.get_text(" ", strip=True) for h in soup.find_all("h1")][:5]
-        h2 = [h.get_text(" ", strip=True) for h in soup.find_all("h2")][:8]
-        out["homepage"] = {"title": title, "meta": meta, "h1": h1, "h2": h2}
 
-        links = []
-        for a in soup.find_all("a", href=True):
-            href = a["href"].strip()
-            if href.startswith("http") and url.split("/")[2] in href:
-                links.append(href)
-            elif href.startswith("/"):
-                base = url.rstrip("/")
-                links.append(base + href)
-            if len(links) >= 3:
-                break
-
-        for link in links:
-            try:
-                r2 = requests.get(link, timeout=timeout_sec, headers={"User-Agent": "Mozilla/5.0"})
-                s2 = BeautifulSoup(r2.text, "lxml")
-                title2 = s2.title.text.strip() if s2.title else ""
-                md2 = s2.find("meta", {"name": "description"})
-                meta2 = md2.get("content", "").strip() if md2 else ""
-                h1_2 = [h.get_text(" ", strip=True) for h in s2.find_all("h1")][:3]
-                out["samples"].append({"url": link, "title": title2, "meta": meta2, "h1": h1_2})
-            except Exception:
-                continue
-    except Exception:
-        pass
-    return out
 
 
 def sanitize(txt: str) -> str:
@@ -148,22 +209,49 @@ def sanitize(txt: str) -> str:
     txt = re.sub(r" {2,}", " ", txt)
     return txt.strip()
 
+# Global helper: build_campaign_table (used in multiple places)
+def build_campaign_table(text):
+    """Uddrag kampagneoplysninger fra eksekveringsoutputtet til oversigtstabel."""
+    import pandas as pd
+    campaigns = []
+    current = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.lower().startswith("kampagne"):
+            if current:
+                campaigns.append(current)
+            current = {"Kampagne": line}
+        elif line.lower().startswith("fokus:"):
+            current["Fokus"] = line.split(":", 1)[1].strip()
+        elif line.lower().startswith("periode:"):
+            current["Periode"] = line.split(":", 1)[1].strip()
+        elif line.lower().startswith("budget:"):
+            current["Budgetandel"] = line.split(":", 1)[1].strip()
+    if current:
+        campaigns.append(current)
+    rows = []
+    for c in campaigns:
+        rows.append({
+            "Kampagne": c.get("Kampagne", ""),
+            "Fokus": c.get("Fokus", ""),
+            "Periode": c.get("Periode", ""),
+            "Budgetandel": c.get("Budgetandel", "")
+        })
+    return pd.DataFrame(rows)
+
 #
 # =============================
 # Format RAW output for Markdown
 # =============================
-def format_raw_output(txt: str) -> str:
-    """
-    Forbedret formattering til onlinevisning.
-    """
+# --- Format RAW output for Markdown ---
+def format_strategy_section(txt: str) -> str:
+    """Format strategy (core) section for markdown."""
     if not txt:
         return ""
-
-    # Normalize bullets and trim double spaces
     txt = txt.replace("•", "-")
     txt = re.sub(r" {2,}", " ", txt)
-
-    # --- Section header definitions ---
     main_headers = [
         "Overordnet strategi og målsætning",
         "KPI’er der skal måles på",
@@ -172,148 +260,23 @@ def format_raw_output(txt: str) -> str:
         "Konkurrentanalyse",
         "Generelle spørgsmål til kunden"
     ]
-    exec_headers = [
-        "6) Forslag til kreativer",
-        "7) Kampagneplan for et år",
-        "8) Budgetplan for året"
-    ]
-
     def normalize_header(s):
         s = s.strip()
         s = re.sub(r"^\d+\)?\.?\s*", "", s)
         s = re.sub(r"[:.\-–—\s]+$", "", s)
         return s.lower()
     header_map = {normalize_header(h): h for h in main_headers}
-    exec_header_map = {normalize_header(h): h for h in exec_headers}
-
-    # --- RAW EXECUTION OUTPUT refactor ---
-    # We'll treat exec_headers as main sections, and apply special formatting for campaigns, announcements, fields, etc.
-    # Remove "Spørgsmål til kunden" in execution part
     lines = txt.splitlines()
     out = []
     i = 0
-    in_exec_section = False
-    in_campaign = False
-    in_ad = False
-    last_section = None
     prev_line_bullet = False
-    funnel_stages = ["Awareness", "Consideration", "Conversion", "Loyalty", "Retention", "Prospecting", "Remarketing"]
-    field_labels = [
-        "Fokus", "Formater", "Målgruppe", "Periode", "KPI’er", "Budget",
-        "Hook", "Primærtekst", "Overskrift", "CTA", "Score"
-    ]
-    # Precompile regexes for performance
-    re_exec_header = re.compile(r"^(6\)|7\)|8\))\s*[^:]*", re.IGNORECASE)
-    re_campaign = re.compile(r"^Kampagne\s+\d+[:]?")
-    re_ad = re.compile(r"^Annonce\s+\d+[:]?")
-    re_field = re.compile(r"^(" + "|".join(field_labels) + r")\s*:(.*)")
-    re_funnel = re.compile(r"^(" + "|".join(funnel_stages) + r")\s*:(.*)", re.IGNORECASE)
-    # To skip "Spørgsmål til kunden" in exec
-    def is_spg_kunden(line):
-        return line.lower().startswith("spørgsmål til kunden")
-
+    last_section = None
     while i < len(lines):
         raw = lines[i].strip()
         if not raw:
             prev_line_bullet = False
             i += 1
             continue
-
-        # Detect RAW EXECUTION OUTPUT section headers (6,7,8)
-        norm_exec = normalize_header(raw)
-        if norm_exec in exec_header_map:
-            # Main execution header
-            if out and out[-1] != "":
-                out.append("")
-            out.append(f"## **{exec_header_map[norm_exec]}**")
-            out.append("")
-            last_section = exec_header_map[norm_exec]
-            in_exec_section = True
-            in_campaign = False
-            in_ad = False
-            prev_line_bullet = False
-            i += 1
-            continue
-        # Detect campaign header
-        if in_exec_section and re_campaign.match(raw):
-            out.append("")
-            out.append("---")
-            out.append("")
-            out.append(f"## **{raw}**")
-            out.append("")
-            in_campaign = True
-            in_ad = False
-            prev_line_bullet = False
-            i += 1
-            continue
-        # Detect funnel stage
-        if in_exec_section and re_funnel.match(raw):
-            match = re_funnel.match(raw)
-            label = match.group(1)
-            value = match.group(2).strip()
-            out.append("")
-            out.append(f"**{label}:**")
-            if value:
-                out.append(value)
-            out.append("")
-            prev_line_bullet = False
-            i += 1
-            continue
-        # Detect Annonce X header
-        if in_exec_section and re_ad.match(raw):
-            out.append("")
-            out.append(f"### **{raw}**")
-            out.append("")
-            in_ad = True
-            prev_line_bullet = False
-            i += 1
-            continue
-        # Detect field label
-        if in_exec_section and re_field.match(raw):
-            match = re_field.match(raw)
-            label = match.group(1)
-            value = match.group(2).strip()
-            out.append("")
-            out.append(f"**{label}:**")
-            if value:
-                out.append(value)
-            out.append("")
-            prev_line_bullet = False
-            i += 1
-            continue
-        # Remove "Spørgsmål til kunden" in execution
-        if in_exec_section and is_spg_kunden(raw):
-            # Skip this and any following bullet lines (max 2), and blank lines
-            j = i + 1
-            skipped = 0
-            while j < len(lines) and skipped < 2:
-                next_ln = lines[j].strip()
-                if next_ln.startswith("-") or next_ln.startswith("•"):
-                    skipped += 1
-                    j += 1
-                elif not next_ln:
-                    j += 1
-                else:
-                    break
-            i = j
-            continue
-        # Bullets: keep and ensure blank line after each bullet
-        if in_exec_section and raw.startswith("-"):
-            if out and out[-1] and not out[-1].startswith("-"):
-                out.append("")
-            out.append(raw)
-            prev_line_bullet = True
-            i += 1
-            continue
-        # Everything else in execution: just append, with spacing
-        if in_exec_section:
-            out.append(raw)
-            prev_line_bullet = False
-            i += 1
-            continue
-
-        # --- STRATEGY OUTPUT logic below (unchanged) ---
-        # Detect main strategy headers (even if not numbered)
         norm = normalize_header(raw)
         if norm in header_map:
             header_text = header_map[norm]
@@ -325,7 +288,6 @@ def format_raw_output(txt: str) -> str:
             prev_line_bullet = False
             i += 1
             continue
-        # Numbered section headers
         if re.match(r"^\d+\)", raw):
             if out and out[-1] != "":
                 out.append("")
@@ -335,7 +297,6 @@ def format_raw_output(txt: str) -> str:
             prev_line_bullet = False
             i += 1
             continue
-        # Special handling for "elementer der skal trackes på"
         if "elementer der skal trackes på" in raw.lower():
             out.append("")
             out.append("## **Elementer der skal trackes på**")
@@ -344,12 +305,10 @@ def format_raw_output(txt: str) -> str:
             prev_line_bullet = False
             i += 1
             continue
-        # "Spørgsmål til kunden" logic (for strategy)
         if raw.lower().startswith("spørgsmål til kunden"):
             if out and out[-1] != "":
                 out.append("")
             out.append(f"**Spørgsmål til kunden:**")
-            # Try to collect the next 2 bullet lines (if present)
             bullet_count = 0
             j = i + 1
             while j < len(lines) and bullet_count < 2:
@@ -366,7 +325,6 @@ def format_raw_output(txt: str) -> str:
             out.append("")
             i = j
             continue
-        # Bullets in strategy: ensure single blank line between bullets
         if raw.startswith("-"):
             if out and out[-1] and not out[-1].startswith("-"):
                 out.append("")
@@ -374,21 +332,179 @@ def format_raw_output(txt: str) -> str:
             prev_line_bullet = True
             i += 1
             continue
-        # Regular text
         out.append(raw)
         prev_line_bullet = False
         i += 1
-
-    # Collapse multiple blank lines to max two
     formatted = "\n".join(out)
     formatted = re.sub(r"\n{3,}", "\n\n", formatted)
     formatted = "\n".join([l.rstrip() for l in formatted.splitlines()])
-    # Collapse multiple blank lines between bullets to just one
     def collapse_bullet_newlines(text):
         return re.sub(r"(- .+)\n{2,}(?=- )", r"\1\n", text)
     formatted = collapse_bullet_newlines(formatted)
     formatted = formatted.strip() + "\n"
     return formatted
+
+def format_execution_section(txt: str) -> str:
+    """Format execution section for markdown."""
+    if not txt:
+        return ""
+    txt = txt.replace("•", "-")
+    txt = re.sub(r" {2,}", " ", txt)
+    exec_headers = [
+        "6) Forslag til kreativer",
+        "7) Kampagneplan for et år",
+        "8) Budgetplan for året"
+    ]
+    funnel_stages = ["Awareness", "Consideration", "Conversion", "Loyalty", "Retention", "Prospecting", "Remarketing"]
+    field_labels = [
+        "Fokus", "Formater", "Målgruppe", "Periode", "KPI’er", "Budget",
+        "Hook", "Primærtekst", "Overskrift", "CTA", "Score"
+    ]
+    def normalize_header(s):
+        s = s.strip()
+        s = re.sub(r"^\d+\)?\.?\s*", "", s)
+        s = re.sub(r"[:.\-–—\s]+$", "", s)
+        return s.lower()
+    exec_header_map = {normalize_header(h): h for h in exec_headers}
+    re_campaign = re.compile(r"^Kampagne\s+\d+[:]?")
+    re_ad = re.compile(r"^Annonce\s+\d+[:]?")
+    re_field = re.compile(r"^(" + "|".join(field_labels) + r")\s*:(.*)")
+    re_funnel = re.compile(r"^(" + "|".join(funnel_stages) + r")\s*:(.*)", re.IGNORECASE)
+    def is_spg_kunden(line):
+        return line.lower().startswith("spørgsmål til kunden")
+    lines = txt.splitlines()
+    out = []
+    i = 0
+    in_exec_section = False
+    in_campaign = False
+    in_ad = False
+    prev_line_bullet = False
+    last_section = None
+    while i < len(lines):
+        raw = lines[i].strip()
+        if not raw:
+            prev_line_bullet = False
+            i += 1
+            continue
+        norm_exec = normalize_header(raw)
+        if norm_exec in exec_header_map:
+            if out and out[-1] != "":
+                out.append("")
+            out.append(f"## **{exec_header_map[norm_exec]}**")
+            out.append("")
+            last_section = exec_header_map[norm_exec]
+            in_exec_section = True
+            in_campaign = False
+            in_ad = False
+            prev_line_bullet = False
+            i += 1
+            continue
+        if in_exec_section and re_campaign.match(raw):
+            out.append("")
+            out.append("---")
+            out.append("")
+            out.append(f"## **{raw}**")
+            out.append("")
+            in_campaign = True
+            in_ad = False
+            prev_line_bullet = False
+            i += 1
+            continue
+        if in_exec_section and re_funnel.match(raw):
+            match = re_funnel.match(raw)
+            label = match.group(1)
+            value = match.group(2).strip()
+            out.append("")
+            out.append(f"**{label}:**")
+            if value:
+                out.append(value)
+            out.append("")
+            prev_line_bullet = False
+            i += 1
+            continue
+        if in_exec_section and re_ad.match(raw):
+            out.append("")
+            out.append(f"### **{raw}**")
+            out.append("")
+            in_ad = True
+            prev_line_bullet = False
+            i += 1
+            continue
+        if in_exec_section and re_field.match(raw):
+            match = re_field.match(raw)
+            label = match.group(1)
+            value = match.group(2).strip()
+            out.append("")
+            out.append(f"**{label}:**")
+            if value:
+                out.append(value)
+            out.append("")
+            prev_line_bullet = False
+            i += 1
+            continue
+        if in_exec_section and is_spg_kunden(raw):
+            j = i + 1
+            skipped = 0
+            while j < len(lines) and skipped < 2:
+                next_ln = lines[j].strip()
+                if next_ln.startswith("-") or next_ln.startswith("•"):
+                    skipped += 1
+                    j += 1
+                elif not next_ln:
+                    j += 1
+                else:
+                    break
+            i = j
+            continue
+        if in_exec_section and raw.startswith("-"):
+            if out and out[-1] and not out[-1].startswith("-"):
+                out.append("")
+            out.append(raw)
+            prev_line_bullet = True
+            i += 1
+            continue
+        if in_exec_section:
+            out.append(raw)
+            prev_line_bullet = False
+            i += 1
+            continue
+        out.append(raw)
+        prev_line_bullet = False
+        i += 1
+    formatted = "\n".join(out)
+    formatted = re.sub(r"\n{3,}", "\n\n", formatted)
+    formatted = "\n".join([l.rstrip() for l in formatted.splitlines()])
+    def collapse_bullet_newlines(text):
+        return re.sub(r"(- .+)\n{2,}(?=- )", r"\1\n", text)
+    formatted = collapse_bullet_newlines(formatted)
+    formatted = formatted.strip() + "\n"
+    return formatted
+
+def format_raw_output(txt: str) -> str:
+    """Forbedret formattering til onlinevisning."""
+    # Split into strategy and execution by looking for section 6/7/8 header lines
+    if not txt:
+        return ""
+    exec_markers = [
+        "6) Forslag til kreativer",
+        "7) Kampagneplan for et år",
+        "8) Budgetplan for året"
+    ]
+    # Find first occurrence of any execution marker (case-insensitive)
+    lines = txt.splitlines()
+    idx = None
+    for i, line in enumerate(lines):
+        for m in exec_markers:
+            if m.lower() in line.lower():
+                idx = i
+                break
+        if idx is not None:
+            break
+    if idx is None:
+        return format_strategy_section(txt)
+    strategy_lines = lines[:idx]
+    exec_lines = lines[idx:]
+    return format_strategy_section("\n".join(strategy_lines)) + "\n" + format_execution_section("\n".join(exec_lines))
 
 #
 # =============================
@@ -402,9 +518,20 @@ def run_gpt(prompt: str, api_key: str, model: str, max_tokens: int = 2000) -> st
     from openai import OpenAI
     client = OpenAI(api_key=api_key)
     try:
-        temperature_value = 1.0 if model == "gpt-5" else 0.0
+        model_map = {
+            "gpt-5": "gpt-5",
+            "gpt-4o": "gpt-4o",
+            "gpt-4o-mini": "gpt-4o-mini"
+        }
+        temp_map = {
+            "gpt-5": 1.0,
+            "gpt-4o": 0.0,
+            "gpt-4o-mini": 0.0
+        }
+        chosen_model = model_map.get(model, model)
+        temperature_value = temp_map.get(model, 0.0)
         response = client.chat.completions.create(
-            model="gpt-5" if model == "gpt-5" else model,
+            model=chosen_model,
             messages=[
                 {"role": "system", "content": "Du er en senior Meta Ads strategist. Svar altid i ren tekst uden markdown."},
                 {"role": "user", "content": prompt}
@@ -440,7 +567,10 @@ def build_context():
             ad_account_summary = "Kunne ikke læse filen – ignoreres i analysen."
 
     # Let website-scrape (valgfrit input til prompten)
-    site = simple_scrape(website)
+    site = st.session_state.get("scraped_site", {}).get("data", {})
+
+    # Vigtige undersider (fra brugerinput)
+    user_subpages = st.session_state.get("scraped_subpages", {}).get("data", [])
 
     # Kampagner
     base_ao_rt = max(0, int(ao_rt_campaigns))
@@ -462,12 +592,14 @@ def build_context():
         "push_count": base_push,
         "requested_push_total": requested_push_total,
         "competitors": competitors,
+        "user_subpages": user_subpages,
     }
 
 def prompt_strategy_core(ctx: dict) -> str:
     # Brug lidt site/Xpect som kontekst
     home = ctx["site"].get("homepage", {})
-    sample_titles = ", ".join([s.get("title","") for s in ctx["site"].get("samples",[]) if s.get("title")][:3])
+    sub_titles = [s.get("title","") for s in ctx.get("user_subpages", []) if s.get("title")]
+    sample_titles = ", ".join(([s.get("title","") for s in ctx["site"].get("samples",[]) if s.get("title")] + sub_titles)[:6])
 
     return f"""
 Du er senior Meta Ads-strateg og skal levere STRATEGI-KERNEN på DANSK som ren tekst med bullets (•). Følg PRÆCIS denne rækkefølge af sektioner og afslut hver sektion med 'Spørgsmål til kunden:' efterfulgt af 2 bullets.
@@ -605,12 +737,171 @@ Strategi-kernen (kontekst):
 # =============================
 # DOCX builder
 # =============================
-def build_docx(customer_name: str, website: str, monthly_budget: int, strategy_core: str, execution_text: str) -> bytes:
-    from docx import Document
-    from docx.shared import Pt
-    from docx.oxml.ns import qn
-    from io import BytesIO
+# --- DOCX section helpers (moved out of build_docx) ---
+from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from io import BytesIO
 
+def _add_field_run(paragraph, field_code):
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    r = paragraph.add_run()
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+    r._r.append(fldChar1)
+    instr = OxmlElement('w:instrText')
+    instr.set(qn('xml:space'), 'preserve')
+    instr.text = field_code
+    r._r.append(instr)
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'separate')
+    r._r.append(fldChar2)
+    r2 = paragraph.add_run()
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    r2._r.append(fldChar3)
+
+def add_toc(document):
+    p = document.add_paragraph()
+    _add_field_run(p, 'TOC \\o "1-3" \\h \\z \\u')
+    p.paragraph_format.space_after = Pt(6)
+
+def add_page_numbers(document):
+    for section in document.sections:
+        footer = section.footer
+        p = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        _add_field_run(p, 'PAGE')
+        p.add_run(" / ")
+        _add_field_run(p, 'NUMPAGES')
+
+def add_section_docx(doc, title, body, heading_level=1):
+    doc.add_heading(title, heading_level)
+    if not body:
+        doc.add_paragraph("(Ingen data modtaget – tjek AI-output)")
+        doc.add_paragraph()
+        return
+    lines = [ln.rstrip() for ln in body.split("\n")]
+    buffer = []
+    def flush_buffer():
+        for ptxt in buffer:
+            para = doc.add_paragraph(ptxt)
+            para.paragraph_format.space_after = Pt(3)
+        buffer.clear()
+    for ln in lines:
+        p = ln.strip()
+        if not p:
+            flush_buffer()
+            continue
+        if p.lower().startswith("spørgsmål til kunden"):
+            flush_buffer()
+            para = doc.add_paragraph()
+            run = para.add_run("Spørgsmål til kunden:")
+            run.bold = True
+            para.paragraph_format.space_after = Pt(3)
+            continue
+        if p.startswith("- ") or p.startswith("• "):
+            flush_buffer()
+            para = doc.add_paragraph(p[2:].strip(), style='List Bullet')
+            para.paragraph_format.space_after = Pt(2)
+        else:
+            buffer.append(p)
+    flush_buffer()
+    doc.add_paragraph()
+
+def add_section_kreativer_docx(doc, title, body):
+    stages = ["Awareness", "Consideration", "Conversion", "Loyalty", "Retention"]
+    doc.add_heading(title, 1)
+    if not body:
+        doc.add_paragraph("(Ingen data modtaget – tjek AI-output)")
+        doc.add_paragraph()
+        return
+    lines = [ln.rstrip() for ln in body.split("\n")]
+    buffer = []
+    def flush_buffer_as_paras():
+        for txt in buffer:
+            if txt.startswith("- ") or txt.startswith("• "):
+                para = doc.add_paragraph(txt[2:].strip(), style='List Bullet')
+            else:
+                para = doc.add_paragraph(txt)
+            para.paragraph_format.space_after = Pt(2)
+        buffer.clear()
+    for ln in lines:
+        p = ln.strip()
+        if not p:
+            flush_buffer_as_paras()
+            continue
+        if any(p.lower().startswith(s.lower()) for s in stages) and (p.lower() in [s.lower() for s in stages] or p.endswith(":")):
+            flush_buffer_as_paras()
+            stage_title = p.rstrip(":")
+            doc.add_heading(stage_title, 2)
+            continue
+        buffer.append(p)
+    flush_buffer_as_paras()
+    doc.add_paragraph()
+
+def add_section_kampagneplan_docx(doc, title, body):
+    doc.add_heading(title, 1)
+    if not body:
+        doc.add_paragraph("(Ingen data modtaget – tjek AI-output)")
+        doc.add_paragraph()
+        return
+    campaign_df = build_campaign_table(body)
+    if not campaign_df.empty:
+        table = doc.add_table(rows=1 + len(campaign_df), cols=4)
+        table.style = "Table Grid"
+        hdr_cells = table.rows[0].cells
+        headers = ["Kampagne", "Fokus", "Periode", "Budgetandel"]
+        for i, h in enumerate(headers):
+            run = hdr_cells[i].paragraphs[0].add_run(h)
+            run.bold = True
+        for row_idx, row in enumerate(campaign_df.itertuples(index=False), start=1):
+            table.rows[row_idx].cells[0].text = getattr(row, "Kampagne", "")
+            table.rows[row_idx].cells[1].text = getattr(row, "Fokus", "")
+            table.rows[row_idx].cells[2].text = getattr(row, "Periode", "")
+            table.rows[row_idx].cells[3].text = getattr(row, "Budgetandel", "")
+        para = doc.add_paragraph()
+        para.paragraph_format.space_after = Pt(10)
+    lines = [ln.rstrip() for ln in body.split("\n")]
+    buffer = []
+    def flush_buffer():
+        for p in buffer:
+            para = doc.add_paragraph(p)
+            para.paragraph_format.space_after = Pt(2)
+        buffer.clear()
+    for ln in lines:
+        p = ln.strip()
+        if not p:
+            flush_buffer()
+            continue
+        if p.lower().startswith("kampagne"):
+            flush_buffer()
+            doc.add_heading(p, 2)
+            doc.add_paragraph()
+        elif p.lower().startswith("annonce"):
+            flush_buffer()
+            doc.add_heading(p, 3)
+        elif p.startswith("- ") or p.startswith("• ") or any(p.startswith(prefix) for prefix in ["Fokus:", "Formater:", "Målgruppe:", "Periode:", "KPI’er:", "Budget:", "Hook:", "Primærtekst:", "Overskrift:", "CTA:", "Score:"]):
+            flush_buffer()
+            if p.startswith("- ") or p.startswith("• "):
+                para = doc.add_paragraph(p[2:].strip(), style='List Bullet')
+            else:
+                if ":" in p:
+                    label, val = p.split(":", 1)
+                    para = doc.add_paragraph()
+                    r1 = para.add_run(label + ": ")
+                    r1.bold = True
+                    para.add_run(val.strip())
+                else:
+                    para = doc.add_paragraph(p)
+            para.paragraph_format.space_after = Pt(2)
+        else:
+            buffer.append(p)
+    flush_buffer()
+    doc.add_paragraph()
+
+def build_docx(customer_name: str, website: str, monthly_budget: int, strategy_core: str, execution_text: str) -> bytes:
     # Required sections in exact order
     CORE_HEADERS = [
         "Overordnet strategi og målsætning",
@@ -624,15 +915,9 @@ def build_docx(customer_name: str, website: str, monthly_budget: int, strategy_c
         "Kampagneplan for et år",
         "Budgetplan for året",
     ]
-
     def split_sections(text: str, headers: list[str]) -> dict:
-        """
-        Robust splitter der genkender en sektion uanset om GPT skriver:
-        '1) Header', 'Header:', 'Header —', 'Header -', 'Header–' osv.
-        """
         if not text:
             return {h: "" for h in headers}
-
         lines = text.splitlines()
         cleaned_lines = []
         for ln in lines:
@@ -661,206 +946,26 @@ def build_docx(customer_name: str, website: str, monthly_budget: int, strategy_c
             body = "\n".join(lines[start+1:end]).strip()
             result[header] = body
         return result
-
     core_sec = split_sections(strategy_core, CORE_HEADERS)
     exec_sec = split_sections(execution_text, EXEC_HEADERS)
-
     doc = Document()
-
-    # ---- Helpers: TOC + page numbers ----
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-
-    def _add_field_run(paragraph, field_code):
-        from docx.oxml import OxmlElement
-        from docx.oxml.ns import qn
-        r = paragraph.add_run()
-        fldChar1 = OxmlElement('w:fldChar')
-        fldChar1.set(qn('w:fldCharType'), 'begin')
-        r._r.append(fldChar1)
-
-        instr = OxmlElement('w:instrText')
-        instr.set(qn('xml:space'), 'preserve')
-        instr.text = field_code
-        r._r.append(instr)
-
-        fldChar2 = OxmlElement('w:fldChar')
-        fldChar2.set(qn('w:fldCharType'), 'separate')
-        r._r.append(fldChar2)
-
-        r2 = paragraph.add_run()
-        fldChar3 = OxmlElement('w:fldChar')
-        fldChar3.set(qn('w:fldCharType'), 'end')
-        r2._r.append(fldChar3)
-
-    def add_toc(document):
-        # Creates a Word TOC field (updates on open with F9)
-        p = document.add_paragraph()
-        _add_field_run(p, 'TOC \\o "1-3" \\h \\z \\u')
-        p.paragraph_format.space_after = Pt(6)
-
-    def add_page_numbers(document):
-        for section in document.sections:
-            footer = section.footer
-            p = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            _add_field_run(p, 'PAGE')
-            p.add_run(" / ")
-            _add_field_run(p, 'NUMPAGES')
-
-    # Title
     doc.add_heading("Meta Ads Strategi", 0)
-    # Kunde og website
     p = doc.add_paragraph()
     p.add_run(f"{customer_name or 'Kunde'} — {website or ''}").font.size = Pt(12)
     if monthly_budget:
         p = doc.add_paragraph()
         p.add_run(f"Månedligt budget: {monthly_budget} DKK").font.size = Pt(12)
-
-    # Insert TOC (updates when the file is opened in Word) and page numbers
     add_toc(doc)
     add_page_numbers(doc)
-
-    # Helper: Write section with proper bullet formatting and bold for "Spørgsmål til kunden:"
-    def add_section_docx(title, body, heading_level=1):
-        doc.add_heading(title, heading_level)
-        if not body:
-            doc.add_paragraph("(Ingen data modtaget – tjek AI-output)")
-            doc.add_paragraph()
-            return
-
-        lines = [ln.rstrip() for ln in body.split("\n")]
-        buffer = []
-
-        def flush_buffer():
-            for ptxt in buffer:
-                para = doc.add_paragraph(ptxt)
-                para.paragraph_format.space_after = Pt(3)
-            buffer.clear()
-
-        for ln in lines:
-            p = ln.strip()
-            if not p:
-                flush_buffer()
-                continue
-
-            if p.lower().startswith("spørgsmål til kunden"):
-                flush_buffer()
-                para = doc.add_paragraph()
-                run = para.add_run("Spørgsmål til kunden:")
-                run.bold = True
-                para.paragraph_format.space_after = Pt(3)
-                continue
-
-            # Bullet handling ("- " or "• ")
-            if p.startswith("- ") or p.startswith("• "):
-                flush_buffer()
-                para = doc.add_paragraph(p[2:].strip(), style='List Bullet')
-                para.paragraph_format.space_after = Pt(2)
-            else:
-                buffer.append(p)
-
-        flush_buffer()
-        doc.add_paragraph()
-
-    # Helper for "Forslag til kreativer" with stage subheadings and bullets
-    def add_section_kreativer_docx(title, body):
-        stages = ["Awareness", "Consideration", "Conversion", "Loyalty", "Retention"]
-        doc.add_heading(title, 1)
-        if not body:
-            doc.add_paragraph("(Ingen data modtaget – tjek AI-output)")
-            doc.add_paragraph()
-            return
-
-        lines = [ln.rstrip() for ln in body.split("\n")]
-        current_stage = None
-        buffer = []
-
-        def flush_buffer_as_paras():
-            for txt in buffer:
-                if txt.startswith("- ") or txt.startswith("• "):
-                    para = doc.add_paragraph(txt[2:].strip(), style='List Bullet')
-                else:
-                    para = doc.add_paragraph(txt)
-                para.paragraph_format.space_after = Pt(2)
-            buffer.clear()
-
-        for ln in lines:
-            p = ln.strip()
-            if not p:
-                flush_buffer_as_paras()
-                continue
-
-            # Stage heading line (exact match or ends with colon)
-            if any(p.lower().startswith(s.lower()) for s in stages) and (p.lower() in [s.lower() for s in stages] or p.endswith(":")):
-                flush_buffer_as_paras()
-                stage_title = p.rstrip(":")
-                doc.add_heading(stage_title, 2)
-                current_stage = stage_title
-                continue
-
-            buffer.append(p)
-
-        flush_buffer_as_paras()
-        doc.add_paragraph()
-
-    # Helper for Kampagneplan (Heading 2 for underpunkter, improved bullets and ad headings)
-    def add_section_kampagneplan_docx(title, body):
-        doc.add_heading(title, 1)
-        if not body:
-            doc.add_paragraph("(Ingen data modtaget – tjek AI-output)")
-            doc.add_paragraph()
-            return
-        lines = [ln.rstrip() for ln in body.split("\n")]
-        buffer = []
-        def flush_buffer():
-            for p in buffer:
-                para = doc.add_paragraph(p)
-                para.paragraph_format.space_after = Pt(2)
-            buffer.clear()
-        for ln in lines:
-            p = ln.strip()
-            if not p:
-                flush_buffer()
-                continue
-            if p.lower().startswith("kampagne"):
-                flush_buffer()
-                doc.add_heading(p, 2)
-                doc.add_paragraph()  # a bit of air
-            elif p.lower().startswith("annonce"):
-                flush_buffer()
-                doc.add_heading(p, 3)
-            elif p.startswith("- ") or p.startswith("• ") or any(p.startswith(prefix) for prefix in ["Fokus:", "Formater:", "Målgruppe:", "Periode:", "KPI’er:", "Budget:", "Hook:", "Primærtekst:", "Overskrift:", "CTA:", "Score:"]):
-                flush_buffer()
-                if p.startswith("- ") or p.startswith("• "):
-                    para = doc.add_paragraph(p[2:].strip(), style='List Bullet')
-                else:
-                    # Bold label + normal text for fields
-                    if ":" in p:
-                        label, val = p.split(":", 1)
-                        para = doc.add_paragraph()
-                        r1 = para.add_run(label + ": ")
-                        r1.bold = True
-                        para.add_run(val.strip())
-                    else:
-                        para = doc.add_paragraph(p)
-                para.paragraph_format.space_after = Pt(2)
-            else:
-                buffer.append(p)
-        flush_buffer()
-        doc.add_paragraph()
-
-    # Strategy core
     for header in CORE_HEADERS:
-        add_section_docx(header, core_sec.get(header, ""), heading_level=1)
-    # Execution
+        add_section_docx(doc, header, core_sec.get(header, ""), heading_level=1)
     for header in EXEC_HEADERS:
         if header == "Kampagneplan for et år":
-            add_section_kampagneplan_docx(header, exec_sec.get(header, ""))
+            add_section_kampagneplan_docx(doc, header, exec_sec.get(header, ""))
         elif header == "Forslag til kreativer":
-            add_section_kreativer_docx(header, exec_sec.get(header, ""))
+            add_section_kreativer_docx(doc, header, exec_sec.get(header, ""))
         else:
-            add_section_docx(header, exec_sec.get(header, ""), heading_level=1)
-
+            add_section_docx(doc, header, exec_sec.get(header, ""), heading_level=1)
     buf = BytesIO()
     doc.save(buf)
     return buf.getvalue()
@@ -888,8 +993,30 @@ if generate_btn:
         if execution_raw.startswith("[AI-ERROR]") or execution_raw.startswith("[FEJL]"):
             st.error(execution_raw)
         st.subheader("RAW EXECUTION OUTPUT")
-        st.markdown(format_raw_output(execution_raw), unsafe_allow_html=True)
+
+        formatted_exec = format_raw_output(execution_raw)
         execution_text = sanitize(execution_raw)
+
+        # Find sektionen "Kampagneplan for et år" og indsæt tabellen umiddelbart efter (brug simpel string split)
+        plan_marker = "## **Kampagneplan for et år**"
+        campaign_df = build_campaign_table(execution_text)
+        # Fjern "Annoncer"-kolonnen hvis den findes (men funktionen tilføjer den ikke, så vi sikrer kun de fire relevante)
+        campaign_df = campaign_df[["Kampagne", "Fokus", "Periode", "Budgetandel"]] if not campaign_df.empty else campaign_df
+        # Always show campaign table in online version (Streamlit)
+        if not campaign_df.empty:
+            st.subheader("📊 Kampagneoversigt (uddrag fra eksekvering)")
+            st.dataframe(campaign_df, use_container_width=True)
+        if plan_marker in formatted_exec:
+            parts = formatted_exec.split(plan_marker, 1)
+            st.markdown(parts[0], unsafe_allow_html=True)
+            st.markdown(plan_marker, unsafe_allow_html=True)
+            # Vis tabellen umiddelbart efter overskriften
+            if not campaign_df.empty:
+                st.subheader("📊 Kampagneoversigt (uddrag fra eksekvering)")
+                st.dataframe(campaign_df, use_container_width=True)
+            st.markdown(parts[1] if len(parts) > 1 else "", unsafe_allow_html=True)
+        else:
+            st.markdown(formatted_exec, unsafe_allow_html=True)
 
     
     try:
