@@ -8,7 +8,293 @@ import docx
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+
 from io import BytesIO
+
+# ==========================================
+# Meta-pakker (KAN / SKAL justeres løbende)
+# ==========================================
+META_PACKAGES = {
+    "Meta Ads": {
+        "Bronze": {
+            "annual_campaigns": 2,
+            "ads_per_campaign": 2,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": False,
+                "conversion_tracking": True,
+                "animated_ads": False,
+                "story_ads": False,
+                "capi_gateway": False,
+                "funnel_flows": False,
+                "lead_ads": True,
+                "dynamic_product_ads": False,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Bronze – basis Meta-setup med få kampagner og uden avancerede formater.",
+        },
+        "Sølv": {
+            "annual_campaigns": 3,
+            "ads_per_campaign": 2,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": False,
+                "funnel_flows": False,
+                "lead_ads": True,
+                "dynamic_product_ads": False,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Sølv – flere kampagner og simple funnel-elementer.",
+        },
+        "Guld": {
+            "annual_campaigns": 4,
+            "ads_per_campaign": 3,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": True,
+                "funnel_flows": True,
+                "lead_ads": True,
+                "dynamic_product_ads": False,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Guld – stærkere funnel med flere kampagner og tracking.",
+        },
+        "Platin": {
+            "annual_campaigns": 6,
+            "ads_per_campaign": 4,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": True,
+                "funnel_flows": True,
+                "lead_ads": True,
+                "dynamic_product_ads": False,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Platin – større setup med flere kampagner og fuld funnel.",
+        },
+        "Platin+": {
+            "annual_campaigns": 10,
+            "ads_per_campaign": 5,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": True,
+                "funnel_flows": True,
+                "lead_ads": True,
+                "dynamic_product_ads": False,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Platin+ – max antal kampagner og avanceret funnel.",
+        },
+    },
+    "Meta Ads Webshop": {
+        "Bronze": {
+            "annual_campaigns": 6,
+            "ads_per_campaign": 3,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": False,
+                "conversion_tracking": True,
+                "animated_ads": True,  # begrænset antal
+                "story_ads": True,
+                "capi_gateway": False,
+                "funnel_flows": False,
+                "lead_ads": False,
+                "dynamic_product_ads": True,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Webshop Bronze – basis webshop-setup med DPA og få kampagner.",
+        },
+        "Sølv": {
+            "annual_campaigns": 8,
+            "ads_per_campaign": 4,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": False,
+                "funnel_flows": False,
+                "lead_ads": False,
+                "dynamic_product_ads": True,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Webshop Sølv – flere kampagner og flere animerede ads.",
+        },
+        "Guld": {
+            "annual_campaigns": 12,
+            "ads_per_campaign": 5,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": True,
+                "funnel_flows": True,
+                "lead_ads": False,
+                "dynamic_product_ads": True,
+                "meta_shopping": True,
+            },
+            "description": "Meta Ads Webshop Guld – fuld webshop-funnel inkl. Meta Shopping.",
+        },
+        "Platin": {
+            "annual_campaigns": 16,
+            "ads_per_campaign": 5,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": True,
+                "funnel_flows": True,
+                "lead_ads": False,
+                "dynamic_product_ads": True,
+                "meta_shopping": True,
+            },
+            "description": "Meta Ads Webshop Platin – højt tryk på kampagner og DPA.",
+        },
+        "Platin+": {
+            "annual_campaigns": 20,
+            "ads_per_campaign": 6,
+            "horizon_months": 12,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": True,
+                "funnel_flows": True,
+                "lead_ads": False,
+                "dynamic_product_ads": True,
+                "meta_shopping": True,
+            },
+            "description": "Meta Ads Webshop Platin+ – maks setup med mange kampagner og DPA.",
+        },
+    },
+    "Meta Ads Performance": {
+        "Performance": {
+            "annual_campaigns": 4,
+            "ads_per_campaign": 3,
+            "horizon_months": 4,  # korttidsaftale
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": False,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": False,
+                "funnel_flows": True,
+                "lead_ads": True,
+                "dynamic_product_ads": False,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Performance – 4 måneders performancefokus.",
+        },
+        "Performance Plus": {
+            "annual_campaigns": 6,
+            "ads_per_campaign": 3,
+            "horizon_months": 4,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": False,
+                "funnel_flows": True,
+                "lead_ads": True,
+                "dynamic_product_ads": True,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Performance Plus – mere tryk og flere kampagner på 4 måneder.",
+        },
+        "Performance Max": {
+            "annual_campaigns": 8,
+            "ads_per_campaign": 3,
+            "horizon_months": 4,
+            "features": {
+                "remarketing": True,
+                "pixel": True,
+                "extended_audiences": True,
+                "instagram": True,
+                "messenger_audience_network": True,
+                "conversion_tracking": True,
+                "animated_ads": True,
+                "story_ads": True,
+                "capi_gateway": True,
+                "funnel_flows": True,
+                "lead_ads": True,
+                "dynamic_product_ads": True,
+                "meta_shopping": False,
+            },
+            "description": "Meta Ads Performance Max – maksimalt setup i en kort periode.",
+        },
+    },
+}
 
 #
 # =============================
@@ -31,6 +317,34 @@ with st.sidebar:
         index=0
     )
     st.divider()
+
+    # Pakke-vælger i stedet for frit antal kampagner
+    package_family = st.selectbox("Meta produktpakke", list(META_PACKAGES.keys()), index=0)
+    tier_options = list(META_PACKAGES[package_family].keys())
+    package_tier = st.selectbox("Pakke-niveau", tier_options, index=0)
+
+    current_pkg = META_PACKAGES[package_family][package_tier]
+    base_campaigns = current_pkg["annual_campaigns"]
+    ads_per_campaign = current_pkg["ads_per_campaign"]
+    horizon_months = current_pkg["horizon_months"]
+    package_features = current_pkg["features"]
+    package_description = current_pkg["description"]
+
+    extra_campaigns = st.number_input(
+        "Ekstra kampagner udover pakken",
+        min_value=0,
+        max_value=20,
+        value=0,
+        step=1
+    )
+    total_campaigns = base_campaigns + extra_campaigns
+
+    st.caption(
+        f"Pakke: {package_family} {package_tier} – {base_campaigns} kampagner årligt, "
+        f"{ads_per_campaign} annoncer pr. kampagne, horisont: {horizon_months} mdr."
+    )
+
+    monthly_budget = st.number_input("Månedligt budget (DKK)", min_value=0, step=1000, value=0)
 
 #
 # =============================
@@ -141,12 +455,10 @@ with col1:
                 "data": [scrape_single_page(u) for u in sub_urls]
             }
 
-    monthly_budget = st.number_input("Månedligt budget (DKK)", min_value=0, step=1000, value=0)
     other_info = st.text_area("Egne idéer / Anden vigtig info", height=120)
     competitors_raw = st.text_area("Konkurrenter (én per linje)", height=120)
 
 with col2:
-    total_campaigns = st.number_input("Antal kampagner i alt", min_value=1, max_value=10, value=4, step=1)
     xpect_doc = st.file_uploader("Xpect (DOCX/TXT/PDF)", type=["docx", "txt", "pdf"])
     ad_data_file = st.file_uploader("Eksisterende data fra annoncekonto (CSV/Excel)", type=["csv", "xlsx"])
 
@@ -211,15 +523,13 @@ def sanitize(txt: str) -> str:
     txt = txt.replace("* ", "• ")
     txt = txt.replace("\t", " ")
     txt = re.sub(r" {2,}", " ", txt)
-    # Normaliser eventuelle fejlstavede 'FORS LAG' til 'FORSLAG'
-    txt = re.sub(r"FORS\s*LAG:", "FORSLAG:", txt)
     return txt.strip()
 
 # --- Helper: Format overskrifter som H2 + fede underoverskrifter ---
 def format_headings(text: str) -> str:
     """
     Finder strategiens kendte overskrifter og gør dem til rigtige H2-overskrifter i Streamlit.
-    Gør samtidig centrale underoverskrifter (FORSLAG, Forretningen:, Produkter/ services: osv.)
+    Gør samtidig centrale underoverskrifter (Forretningen:, Produkter/ services: osv.)
     tydelige med fed skrift.
     """
     if not text:
@@ -249,7 +559,6 @@ def format_headings(text: str) -> str:
 
     # Underoverskrifter, der skal stå som fede linjer men ikke som H2
     subheadings = [
-        "FORSLAG:",
         "Forretningen:",
         "Produkter/ services:",
         "Anbefalet content:",
@@ -514,6 +823,14 @@ def build_context():
         "total_campaigns": total,
         "competitors": competitors,
         "user_subpages": user_subpages,
+        "package_family": package_family,
+        "package_tier": package_tier,
+        "base_campaigns": base_campaigns,
+        "extra_campaigns": extra_campaigns,
+        "ads_per_campaign": ads_per_campaign,
+        "horizon_months": horizon_months,
+        "package_features": package_features,
+        "package_description": package_description,
     }
 
 
@@ -595,8 +912,8 @@ VIGTIGT:
 • Feltet “Egne idéer / Anden vigtig info” er HØJESTE prioritet og SKAL tydeligt kunne genkendes i alle frie tekstafsnit.
 • “Vigtige undersider” og Xpect skal bruges aktivt til at forstå produkter, services, sæson og positionering – de må IKKE ignoreres.
 • Eksisterende data fra annoncekonto skal bruges til at beskrive niveauet af historik og påvirke hvor forsigtig/ambitiøs du er i formuleringerne om målsætninger og læringsfaser.
-• Du må IKKE ændre på skabelonens overskrifter, rækkefølge eller forslagstekst.
-• Du må kun tilføje korte forklarende sætninger før FORSLAG-blokkene – selve FORSLAG-teksten og spørgsmålene skal stå ordret som i skabelonen.
+• Du må IKKE ændre på skabelonens overskrifter eller rækkefølge.
+• Du må kun tilføje korte forklarende sætninger – selve FORSLAG-teksten og spørgsmålene er KUN til inspiration til dig og må ikke fremgå af det endelige resultat.
 
 STRUKTUR OG INDHOLD (PRÆCIS SOM SKABELONEN):
 
@@ -617,9 +934,8 @@ STRUKTUR OG INDHOLD (PRÆCIS SOM SKABELONEN):
     • Overskriften skal være alene på en linje: Forretningen
     • Skriv 2–5 linjer, der kort opsummerer forretningen baseret på konteksten (hvad de sælger, hvem de sælger til, geografi, B2B/B2C, salgsvej, udfordringer).
     • Her skal du tydeligt afspejle specialistens input fra “Egne idéer / Anden vigtig info” og indsigter fra både Xpect og vigtige undersider.
-    • Derefter SKAL følgende FORSLAG-blok komme – ordret, i samme rækkefølge og fuldt ud:
 
-    FORSLAG:
+    FORSLAG til inspiration:
     Forretningen:
     Beskriv jeres virksomhed/ hvem I er
     Hvad er jeres vigtigste styrker – og svagheder?
@@ -633,8 +949,6 @@ STRUKTUR OG INDHOLD (PRÆCIS SOM SKABELONEN):
     Hvad driver typisk et køb – pris, kvalitet, brand eller noget andet?
     Har I specifikke kollektioner, kampagner eller nyheder, vi skal planlægge efter i løbet af året?
 
-    • Du må IKKE tilføje flere spørgsmål under denne FORSLAG-blok og IKKE ændre ordlyden.
-
 3) Introduktion til Meta strategi
     • Overskriften skal være alene på en linje: Introduktion til Meta strategi
     • Skriv 3–6 linjer, der forklarer strategiens overordnede tilgang – baseret på eksemplet i skabelonen:
@@ -647,7 +961,6 @@ STRUKTUR OG INDHOLD (PRÆCIS SOM SKABELONEN):
         – Indhold og fokus fra vigtige undersider
         – Xpect-uddraget
         – Kontodata (hvis de indikerer lav/høj spend eller manglende konverteringshistorik)
-    • Du må IKKE tilføje en FORSLAG-blok her – skabelonen har ingen.
 
 4) Målsætninger & KPI’er
     • Overskriften skal være alene på en linje: Målsætninger & KPI’er
@@ -657,16 +970,12 @@ STRUKTUR OG INDHOLD (PRÆCIS SOM SKABELONEN):
         – Kontodata-opsummeringen
         – Eventuelle KPI’er eller mål fra Xpect
       til at gøre målsætningerne realistiske og forankrede i virkeligheden.
-    • Derefter SKAL følgende FORSLAG-blok stå ordret, i samme rækkefølge:
 
-    FORSLAG:
+    FORSLAG til inspiration:
     E-commerce: ROAS, omsætning, CPA, antal køb, pris pr. køb
     Leads/Service: CPL, antal kvalificerede leads, konverteringsrate
     B2B: CPL, bookede møder, video consumption, hjemmesidetrafik
     Awareness: Reach, videovisninger, CTR, besøg på website/sales pages, nye følgere
-
-    • Du må IKKE ændre på teksten eller tilføje ekstra linjer i FORSLAG-blokken.
-    • Hvis nogle af disse ikke er relevante for kunden (fx e-commerce), lader du dem stå som generelle KPI-forslag – du fjerner dem ikke.
 
 5) Målgruppe
     • Overskriften skal være alene på en linje: Målgruppe
@@ -677,7 +986,7 @@ STRUKTUR OG INDHOLD (PRÆCIS SOM SKABELONEN):
         – Website-kontekst (forside + evt. samples)
     • Derefter SKAL følgende del stå ordret:
 
-    FORSLAG:
+    FORSLAG til inspiration:
     3-8 spørgsmål der sikrer en mere præcis forståelse:
     Hvem er jeres drømmekunde?
     Hvilke motiver driver deres køb?
@@ -685,13 +994,11 @@ STRUKTUR OG INDHOLD (PRÆCIS SOM SKABELONEN):
     Hvilke barrierer eller objections kan der være?
     Typiske spørgsmål potentielle kunder stiller?
 
-    • Du må IKKE tilføje flere spørgsmål og IKKE ændre ordlyden.
-    • Du må gerne lade dine 2–4 linjers målgruppe-opsummering være tydeligt koblet til disse spørgsmål, men selve FORSLAG-blokken skal stå som i skabelonen.
 
 GENERELLE OUTPUTKRAV:
     • Svar altid i ren tekst uden markdown (ingen #, ingen **).
     • Brug præcis disse overskrifter: “Agenda”, “Forretningen”, “Introduktion til Meta strategi”, “Målsætninger & KPI’er”, “Målgruppe” – hver på sin egen linje.
-    • Ændr ALDRIG på FORSLAG-overskrifterne eller spørgsmålene – du må kun tilføje korte, forklarende tekstafsnit over dem.
+    • Skriv ALDRIG ordet "FORSLAG" eller "FORSALG" i svaret.
     • Sørg for tydelige linjeskift mellem sektioner og underblokke, så teksten er let at læse højt på et møde.
     • Udnyt konteksten (Egne idéer, vigtige undersider, Xpect, kontodata, website) til de frie tekstlinjer, men opfind ikke konkrete tal eller fakta, kunden ikke har givet.
 
@@ -730,7 +1037,7 @@ Svar på DANSK, i ren tekst (ingen markdown, ingen **). Brug bullets "•" kun h
 Du SKAL aktivt bruge og prioritere følgende input i kampagneplan, budgetplan, USP’er, content og next steps:
 
 1) Egne idéer / Anden vigtig info (HØJESTE PRIORITET)
-   • Kampagner, budget, budskaber og forslag SKAL kunne genkendes i dette input.
+   • Kampagner, budget, budskaber og forslag til inspiration SKAL kunne genkendes i dette input.
    • Rå tekst:
    {other_info}
 
@@ -799,7 +1106,6 @@ VIGTIGT OM KAMPAGNER:
 
 2) USP’er & budskaber
     • Overskriften skal være alene på linjen: USP’er & budskaber
-    • Start med en linje: FORSLAG:
     • Del derefter USP’er i to blokke med præcise underoverskrifter:
 
       Produkt/service USP’er:
@@ -820,7 +1126,6 @@ VIGTIGT OM KAMPAGNER:
 
 3) Content
     • Overskriften skal være alene på linjen: Content
-    • Start med en linje: FORSLAG:
     • Næste linje SKAL være: Anbefalet content:
     • Derefter lister du 6–12 konkrete content-typer i bullets (•), inspireret af eksemplet, fx:
         • Videoer med stærke hooks, der viser problem/løsning
@@ -945,7 +1250,56 @@ def build_docx(customer_name: str, website: str, monthly_budget: int, strategy_c
     full_text = ((strategy_core or "").strip() + "\n\n" + (execution_text or "").strip()).strip()
 
     if full_text:
-        for raw_line in full_text.splitlines():
+        lines = full_text.splitlines()
+        n = len(lines)
+
+        # Identificér linjer der tilhører den måned-for-måned budgetblok,
+        # så vi kan springe dem over i DOCX (budget vises kun som tabel).
+        skip_indices = set()
+        if not budget_df.empty:
+            months = {
+                "Januar",
+                "Februar",
+                "Marts",
+                "April",
+                "Maj",
+                "Juni",
+                "Juli",
+                "August",
+                "September",
+                "Oktober",
+                "November",
+                "December",
+            }
+            budget_idx = None
+            for i, ln in enumerate(lines):
+                if ln.strip().lower().startswith("budgetplan"):
+                    budget_idx = i
+                    # spring også selve "Budgetplan:"-linjen over
+                    skip_indices.add(i)
+                    break
+
+            if budget_idx is not None:
+                i = budget_idx + 1
+                while i < n:
+                    s = lines[i].strip()
+                    if not s:
+                        skip_indices.add(i)
+                        i += 1
+                        continue
+                    low = s.lower()
+                    # Måned, "Budget (DKK):", "Fokus:", "Begrundelse:" skal ikke med som tekst
+                    if s in months or low.startswith("budget") or low.startswith("fokus") or low.startswith("begrundelse"):
+                        skip_indices.add(i)
+                        i += 1
+                        continue
+                    # Stop når vi rammer fx "Opsummering:" eller næste sektion
+                    break
+
+        for idx, raw_line in enumerate(lines):
+            if idx in skip_indices:
+                continue
+
             line = raw_line.rstrip()
             if not line.strip():
                 doc.add_paragraph()
@@ -1068,6 +1422,7 @@ if generate_btn:
             "December",
         }
 
+        # Find "Kampagneoversigt" og "Budgetplan"
         for i, ln in enumerate(lines):
             if idx_kamp is None and ln.strip() == "Kampagneoversigt":
                 idx_kamp = i
@@ -1078,43 +1433,40 @@ if generate_btn:
 
         pointer = 0
 
-        # Tekst op til (og inkl.) Kampagneoversigt
+        # Tekst op til (og inkl.) "Kampagneoversigt" + kampagnetabel
         if idx_kamp is not None:
             top_block = "\n".join(lines[: idx_kamp + 1])
             if top_block:
                 formatted_top = format_headings(top_block)
                 st.markdown(formatted_top.replace("\n", "<br>"), unsafe_allow_html=True)
+
             if not campaign_df.empty:
                 st.subheader("📊 Kampagneoversigt")
                 st.dataframe(campaign_df, use_container_width=True)
-            pointer = idx_kamp + 1
+
+            # VIGTIGT: vi springer kampagnebeskrivelserne helt over
+            pointer = idx_budget if idx_budget is not None else idx_kamp + 1
         else:
             pointer = 0
 
-        # Tekst mellem Kampagneoversigt og Budgetplan (kampagnebeskrivelser)
-        if idx_budget is not None and idx_budget > pointer:
-            mid_block = "\n".join(lines[pointer:idx_budget])
-            if mid_block:
-                formatted_mid = format_headings(mid_block)
-                st.markdown(formatted_mid.replace("\n", "<br>"), unsafe_allow_html=True)
-            pointer = idx_budget
-
-        # Budgetplan + tabel
+        # Budgetplan + tabel (ingen måned-for-måned tekst)
         if idx_budget is not None and idx_budget < n:
             # Vis selve "Budgetplan:"-linjen
             st.markdown(lines[idx_budget].replace("\n", "  \n"), unsafe_allow_html=True)
             pointer = idx_budget + 1
+
             if not budget_df.empty:
                 st.subheader("📈 Budgetplan")
                 st.dataframe(budget_df, use_container_width=True)
 
-            # Spring selve måneds-blokkene over i tekstvisningen
+            # Spring måneds-blokkene over i tekstvisningen
             summary_idx = None
             for i in range(pointer, n):
                 s = lines[i].strip()
                 if s.lower().startswith("opsummering"):
                     summary_idx = i
                     break
+
             if summary_idx is not None:
                 pointer = summary_idx
             else:
