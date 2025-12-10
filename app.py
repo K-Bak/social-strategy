@@ -11,6 +11,21 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from io import BytesIO
 
+#
+# =============================
+# App config
+# =============================
+st.set_page_config(page_title="Meta Ads Strategi", layout="wide")
+st.title("Meta Ads Strategi")
+
+#
+# --- SIKKERHEDSTJEK ---
+query_params = st.query_params
+if query_params.get("access") != "GeneraxionKey":
+    st.error("⛔ Adgang nægtet.")
+    st.info("Denne app kan kun tilgås gennem Generaxions interne systemer.")
+    st.stop()
+
 # ==========================================
 # Meta-pakker (KAN / SKAL justeres løbende)
 # ==========================================
@@ -296,12 +311,6 @@ META_PACKAGES = {
     },
 }
 
-#
-# =============================
-# App config
-# =============================
-st.set_page_config(page_title="Meta Ads Strategi", layout="wide")
-st.title("Meta Ads Strategi")
 
 
 #
